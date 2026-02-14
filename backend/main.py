@@ -5,7 +5,7 @@ import uuid
 import random
 import string
 
-from .manager import ConnectionManager
+from manager import ConnectionManager
 
 app = FastAPI()
 
