@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
 
-/* Fluid Typography & Spacing */
+/* ===== Design System: CSS Custom Properties ===== */
 :root {
   --bg-color: #000000;
   --text-color: #ffffff;
@@ -9,7 +9,6 @@
   --accent: #ff0055;
   --surface: #121212;
   --glass: rgba(20, 20, 20, 0.85);
-  /* Slightly more opaque for readability */
   --border: rgba(255, 255, 255, 0.1);
   --font-main: 'Outfit', 'Inter', system-ui, sans-serif;
   --success: #00ff9d;
@@ -22,7 +21,7 @@
   --spacing-lg: clamp(2rem, 6vw, 4rem);
 }
 
-/* Global Reset & Viewport Lock */
+/* ===== Global Reset & Viewport Lock ===== */
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -35,9 +34,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  /* Lock global scroll */
   overscroll-behavior: none;
-  /* Prevent bounce */
   font-family: var(--font-main);
   background-color: var(--bg-color);
   color: var(--text-color);
@@ -52,29 +49,24 @@ body {
 #root {
   width: 100%;
   max-width: 1200px;
-  /* Wider for desktop dashboards */
   margin: 0 auto;
   padding: var(--spacing-sm);
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  /* Dynamic Viewport Height for mobile bars */
   max-height: 100dvh;
 }
 
-/* Responsive Container */
 @media (min-width: 800px) {
   #root {
     padding: var(--spacing-md);
     justify-content: center;
-    /* Center vertically on desktop */
   }
 }
 
-/* Typography */
+/* ===== Typography ===== */
 h1 {
   font-size: clamp(2rem, 5vw, 3.5rem);
-  /* Fluid font size */
   letter-spacing: -1px;
   margin: 0.5rem 0;
   font-weight: 800;
@@ -100,24 +92,49 @@ h2 {
   letter-spacing: 0.5px;
 }
 
-/* Components */
+/* ===== Inputs ===== */
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 1.2rem;
+  font-size: 1rem;
+  color: var(--text-color);
+  font-family: var(--font-main);
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 1rem;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+/* ===== Cards ===== */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: var(--spacing-md);
-  /* Responsive padding */
   margin-bottom: 1rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   width: 100%;
   box-sizing: border-box;
   max-width: 600px;
-  /* Limit card width on large screens */
   margin-left: auto;
   margin-right: auto;
 }
 
-/* Buttons */
+/* ===== Buttons ===== */
 button {
   width: 100%;
   border: none;
@@ -133,6 +150,7 @@ button {
   margin: 0.5rem 0;
   transition: transform 0.1s, box-shadow 0.2s;
   box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+  font-family: var(--font-main);
 }
 
 button:active {
@@ -143,7 +161,24 @@ button:hover {
   box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
 }
 
-/* Avatar Grid - Mobile: Horizontal Scroll, Desktop: Grid */
+button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-color);
+  box-shadow: none;
+  border: 1px solid var(--border);
+}
+
+button.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Avatar Grid ===== */
 .avatar-grid {
   display: flex;
   overflow-x: auto;
@@ -155,13 +190,34 @@ button:hover {
 @media (min-width: 768px) {
   .avatar-grid {
     flex-wrap: wrap;
-    /* Wrap on tablets+ */
     justify-content: center;
     overflow-x: visible;
     scroll-snap-type: none;
   }
 }
 
+.avatar-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.avatar-option {
+  flex: 0 0 70px;
+  width: 70px;
+  height: 70px;
+  border-radius: 20px;
+  background: #1a1a1a;
+  padding: 5px;
+  scroll-snap-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.avatar-option.selected {
+  background: var(--primary);
+  box-shadow: 0 0 15px var(--primary);
+}
+
+/* ===== Player Grid ===== */
 .player-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -169,7 +225,6 @@ button:hover {
   padding: 1rem;
   overflow-y: auto;
   min-height: 0;
-  /* Allow flex shrinking below content size */
 }
 
 @media (min-width: 600px) {
@@ -185,6 +240,7 @@ button:hover {
   }
 }
 
+/* ===== Category Tabs ===== */
 .category-tabs {
   display: flex;
   gap: 0.5rem;
@@ -204,7 +260,6 @@ button:hover {
   font-size: 0.9rem;
   transition: all 0.2s;
   width: auto;
-  /* Override default button width */
   margin: 0;
   box-shadow: none;
 }
@@ -216,26 +271,7 @@ button:hover {
   font-weight: bold;
 }
 
-.avatar-grid::-webkit-scrollbar {
-  display: none;
-}
-
-.avatar-option {
-  flex: 0 0 70px;
-  width: 70px;
-  height: 70px;
-  border-radius: 20px;
-  background: #1a1a1a;
-  padding: 5px;
-  scroll-snap-align: center;
-}
-
-.avatar-option.selected {
-  background: var(--primary);
-  box-shadow: 0 0 15px var(--primary);
-}
-
-/* Utils */
+/* ===== Utility Classes ===== */
 .flex-center {
   display: flex;
   align-items: center;
@@ -252,7 +288,7 @@ button:hover {
   gap: 0.5rem;
 }
 
-/* Animations */
+/* ===== Animations ===== */
 @keyframes pulse {
   0% {
     opacity: 1;
@@ -269,4 +305,54 @@ button:hover {
 
 .animate-pulse {
   animation: pulse 2s infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== Notification Bubbles ===== */
+.bubble-notification {
+  padding: 0.8rem 1.2rem;
+  border-radius: 16px;
+  border: 1px solid;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+/* ===== Streak Animations ===== */
+.streak-fire {
+  animation: fireGlow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes fireGlow {
+  from {
+    filter: drop-shadow(0 0 4px rgba(255, 85, 0, 0.4));
+  }
+
+  to {
+    filter: drop-shadow(0 0 12px rgba(255, 85, 0, 0.8));
+  }
+}
+
+.streak-sad {
+  animation: sadGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes sadGlow {
+  from {
+    filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.3));
+  }
+
+  to {
+    filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.6));
+  }
 }

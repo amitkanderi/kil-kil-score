@@ -220,7 +220,7 @@ class ConnectionManager:
                     try:
                         await connection.send_json(message)
                     except:
-                        pass # Handle broken pipe?
+                        pass # Handle broken pipe
 
     def get_room(self, room_code: str) -> Optional[GameRoom]:
         return self.rooms.get(room_code)
@@ -230,4 +230,3 @@ class ConnectionManager:
             return self.rooms[room_code]
         self.rooms[room_code] = GameRoom(room_code, settings.get("rounds", 5), settings.get("show_scores", True))
         return self.rooms[room_code]
-

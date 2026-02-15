@@ -1,5 +1,5 @@
 // Avatar collections using DiceBear API
-// Optimized for specific character lookalikes
+// Organized by category with specific character seeds
 
 const r = (style, seed) => `https://api.dicebear.com/9.x/${style}/svg?seed=${seed}`;
 

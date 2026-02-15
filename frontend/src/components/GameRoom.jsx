@@ -25,11 +25,8 @@ function GameRoom() {
     const [showConfetti, setShowConfetti] = useState(false);
     const [votedToEnd, setVotedToEnd] = useState(false);
     const [connectionError, setConnectionError] = useState(false);
-    const [gameOverTab, setGameOverTab] = useState('leaderboard'); // 'leaderboard' or 'rounds'
+    const [gameOverTab, setGameOverTab] = useState('leaderboard');
     const [autoNextRoundTimer, setAutoNextRoundTimer] = useState(5);
-
-    // Canvas ref for sharing
-
 
     // Auto-advance logic
     useEffect(() => {
@@ -40,7 +37,6 @@ function GameRoom() {
                 setAutoNextRoundTimer(prev => {
                     if (prev <= 1) {
                         clearInterval(interval);
-                        // Auto advance
                         setRoundResult(null);
                         setMyTurnDone(false);
                         setVotedToEnd(false);
@@ -110,7 +106,7 @@ function GameRoom() {
                     }
                 } else if (msg.type === "round_end") {
                     setRoundResult(msg.data);
-                    roundResultRef.current = msg.data; // Sync ref immediately to prevent race condition with state_update
+                    roundResultRef.current = msg.data; // Sync ref immediately to prevent race condition
                     if (msg.data.events) setEvents(msg.data.events);
                     const myDetails = msg.data.details.find(d => d.name === playerName);
                     if (myDetails && myDetails.is_winner) setShowConfetti(true);
@@ -146,11 +142,10 @@ function GameRoom() {
         };
     }, [roomCode, clientId, playerName, playerAvatar]);
 
-    // Reconnect when tab becomes visible again (e.g. after minimizing browser)
+    // Reconnect when tab becomes visible again (critical for mobile)
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                // If disconnected, reset attempts and try reconnecting
                 if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
                     reconnectAttempts.current = 0;
                     intentionalClose.current = false;
@@ -159,7 +154,7 @@ function GameRoom() {
                         try { wsRef.current.close(); } catch (e) { /* ignore */ }
                         wsRef.current = null;
                     }
-                    // Trigger a fresh connection by creating a new socket
+                    // Fresh connection
                     const socket = new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/${roomCode}/${clientId}`);
 
                     socket.onopen = () => {
@@ -218,7 +213,7 @@ function GameRoom() {
         if (!isConnected) {
             timer = setTimeout(() => {
                 setConnectionError(true);
-            }, 5000); // 5 seconds timeout
+            }, 5000);
         } else {
             setConnectionError(false);
         }
@@ -247,36 +242,36 @@ function GameRoom() {
         const players = Object.values(gameState.players).sort((a, b) => b.total_score - a.total_score);
 
         // Config
-        const width = 600;
+        const canvasWidth = 600;
         const rowHeight = 60;
         const headerHeight = 150;
         const padding = 40;
         const totalHeight = headerHeight + (players.length * rowHeight) + padding;
 
-        canvas.width = width;
+        canvas.width = canvasWidth;
         canvas.height = totalHeight;
 
         // Background
         ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, totalHeight);
+        ctx.fillRect(0, 0, canvasWidth, totalHeight);
 
         // Header (Title)
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 40px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText("GAME RESULTS", width / 2, 60);
+        ctx.fillText("GAME RESULTS", canvasWidth / 2, 60);
 
         // Header (Room Code)
         ctx.fillStyle = '#888888';
         ctx.font = '20px sans-serif';
-        ctx.fillText(`Room: ${roomCode} • ${gameState.total_rounds} Rounds`, width / 2, 100);
+        ctx.fillText(`Room: ${roomCode} • ${gameState.total_rounds} Rounds`, canvasWidth / 2, 100);
 
         // Divider
         ctx.strokeStyle = '#333333';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(padding, 120);
-        ctx.lineTo(width - padding, 120);
+        ctx.lineTo(canvasWidth - padding, 120);
         ctx.stroke();
 
         // Players
@@ -289,10 +284,10 @@ function GameRoom() {
             // Highlight Winner
             if (i === 0) {
                 ctx.fillStyle = '#1a1a1a';
-                ctx.fillRect(padding - 10, y - 40, width - (padding * 2) + 20, rowHeight);
+                ctx.fillRect(padding - 10, y - 40, canvasWidth - (padding * 2) + 20, rowHeight);
                 ctx.strokeStyle = 'gold';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(padding - 10, y - 40, width - (padding * 2) + 20, rowHeight);
+                ctx.strokeRect(padding - 10, y - 40, canvasWidth - (padding * 2) + 20, rowHeight);
                 ctx.fillStyle = 'gold';
             } else {
                 ctx.fillStyle = '#ffffff';
@@ -307,7 +302,7 @@ function GameRoom() {
             // Score
             const scoreText = p.total_score.toFixed(0);
             const scoreWidth = ctx.measureText(scoreText).width;
-            ctx.fillText(scoreText, width - padding - scoreWidth, y);
+            ctx.fillText(scoreText, canvasWidth - padding - scoreWidth, y);
         });
 
         // Download
@@ -317,6 +312,7 @@ function GameRoom() {
         link.click();
     };
 
+    // ===== Connection Error Screen =====
     if (connectionError) {
         return (
             <div className="card flex-center" style={{ height: '100%', flexDirection: 'column', gap: '1rem', textAlign: 'center' }}>
@@ -333,11 +329,13 @@ function GameRoom() {
         );
     }
 
+    // ===== Connecting Screen =====
     if (!isConnected) return <div className="card flex-center" style={{ height: '100%', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ fontSize: '3rem', animation: 'spin 1s infinite linear' }}>🥨</div>
         <div>Connecting to room...</div>
     </div>;
 
+    // ===== Loading Screen =====
     if (!gameState) return <div className="card flex-center" style={{ height: '100%' }}>Loading Game Data...</div>;
 
     const amIHost = gameState.players[clientId]?.is_host;
@@ -345,14 +343,14 @@ function GameRoom() {
     const isGameOver = gameState.game_over;
     const myPlayer = gameState.players[clientId];
 
-    // Lobby View
+    // ===== LOBBY VIEW =====
     if (isLobby) {
         return (
             <div style={{ padding: '1rem' }}>
                 <h2 className="title" style={{ textAlign: 'center' }}>Lobby</h2>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <span className="subtitle">ROOM CODE</span>
-                    <h1 onClick={() => navigator.clipboard.writeText(roomCode)} style={{ fontSize: '3rem', margin: '0.5rem 0', letterSpacing: '5px' }}>
+                    <h1 onClick={() => navigator.clipboard.writeText(roomCode)} style={{ fontSize: '3rem', margin: '0.5rem 0', letterSpacing: '5px', cursor: 'pointer' }}>
                         {roomCode}
                     </h1>
                 </div>
@@ -367,7 +365,7 @@ function GameRoom() {
                         >
                             <div style={{ position: 'relative' }}>
                                 <img src={p.avatar} alt={p.name} style={{ width: 80, height: 80, borderRadius: '25px', background: '#222' }} />
-                                {p.is_host && <span className="streak-badge" style={{ background: 'gold', color: 'black', position: 'absolute', top: -10, right: -10, padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 'bold' }}>HOST</span>}
+                                {p.is_host && <span style={{ background: 'gold', color: 'black', position: 'absolute', top: -10, right: -10, padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 'bold' }}>HOST</span>}
                             </div>
                             <div style={{ marginTop: '0.5rem', fontWeight: '600' }}>{p.name}</div>
                         </motion.div>
@@ -385,7 +383,7 @@ function GameRoom() {
         );
     }
 
-    // Game Over View
+    // ===== GAME OVER VIEW =====
     if (isGameOver) {
         const sortedPlayers = Object.values(gameState.players).sort((a, b) => b.total_score - a.total_score);
         const winner = sortedPlayers[0];
@@ -500,7 +498,7 @@ function GameRoom() {
                         amIHost || hostReplayClicked ? (
                             <button
                                 onClick={() => ws.send(JSON.stringify({ action: "vote_restart" }))}
-                                className={!amIHost && hostReplayClicked ? "streak-fire" : ""} // Animate for others if host clicked
+                                className={!amIHost && hostReplayClicked ? "streak-fire" : ""}
                                 style={{ background: '#00ff9d', color: 'black', boxShadow: '0 0 20px rgba(0, 255, 157, 0.4)' }}
                             >
                                 🔄 Play Again
@@ -526,10 +524,8 @@ function GameRoom() {
                         <div className="subtitle" style={{ textAlign: 'center', marginBottom: '1rem' }}>MATCH HIGHLIGHTS</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                             {gameState.history.slice(-3).reverse().map((round, i) => {
-                                // Find winner (is_winner=true)
-                                const winner = round.details.find(d => d.is_winner);
-                                // Find loser (lowest change)
-                                const loser = [...round.details].sort((a, b) => a.change - b.change)[0];
+                                const roundWinner = round.details.find(d => d.is_winner);
+                                const roundLoser = [...round.details].sort((a, b) => a.change - b.change)[0];
 
                                 return (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem', background: '#222', borderRadius: '10px' }}>
@@ -538,14 +534,14 @@ function GameRoom() {
                                         {/* Winner */}
                                         <div className="flex-center" style={{ gap: '0.5rem' }}>
                                             <span style={{ fontSize: '1.2rem' }}>👑</span>
-                                            <img src={winner?.avatar} style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid gold' }} />
+                                            <img src={roundWinner?.avatar} style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid gold' }} />
                                         </div>
 
                                         <div style={{ color: '#444' }}>vs</div>
 
                                         {/* Loser */}
                                         <div className="flex-center" style={{ gap: '0.5rem' }}>
-                                            <img src={loser?.avatar} style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #ff0055', grayscale: 1 }} />
+                                            <img src={roundLoser?.avatar} style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #ff0055' }} />
                                             <span style={{ fontSize: '1.2rem' }}>💀</span>
                                         </div>
                                     </div>
@@ -558,7 +554,7 @@ function GameRoom() {
         );
     }
 
-    // Round Results Overlay
+    // ===== ROUND RESULTS OVERLAY =====
     if (roundResult) {
         return (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100, padding: '1rem', overflowY: 'auto' }}>
@@ -571,7 +567,7 @@ function GameRoom() {
                     <AnimatePresence>
                         {events && events.length > 0 && events.map((e, i) => (
                             <motion.div
-                                key={`event-${i}`} // Unique key
+                                key={`event-${i}`}
                                 className="bubble-notification"
                                 initial={{ y: 20, opacity: 0, scale: 0.8 }}
                                 animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -587,7 +583,7 @@ function GameRoom() {
                             >
                                 {e.type === 'comeback' && `🔥 ${e.player} ON COMEBACK!`}
                                 {e.type === 'win_streak' && `🚀 ${e.player} ON FIRE! (${e.streak} WINS)`}
-                                {e.type === 'loss_streak' && `🌧️ ${e.player} ON LOOSING STREAK (${e.streak} LOSS)`}
+                                {e.type === 'loss_streak' && `🌧️ ${e.player} ON LOSING STREAK (${e.streak} LOSS)`}
                             </motion.div>
                         ))}
                     </AnimatePresence>
@@ -634,7 +630,7 @@ function GameRoom() {
                             setRoundResult(null);
                             setMyTurnDone(false);
                             setVotedToEnd(false);
-                            setEvents([]); // Clear events on manual next
+                            setEvents([]);
                         }} style={{ width: '100%' }}>Next Round Now →</button>
                     </div>
                 </motion.div>
@@ -642,7 +638,7 @@ function GameRoom() {
         );
     }
 
-    // Active Game View
+    // ===== ACTIVE GAME VIEW =====
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: '100%', overflow: 'hidden', padding: '0', boxSizing: 'border-box' }}>
             {/* Header */}
@@ -657,7 +653,6 @@ function GameRoom() {
                             Votes to End: {gameState.votes}/{Object.keys(gameState.players).length}
                         </div>
                     )}
-                    {/* Always allow voting if game is active */}
                     {!votedToEnd && (
                         <button
                             onClick={voteToEnd}
@@ -668,7 +663,8 @@ function GameRoom() {
                                 fontSize: '0.8rem',
                                 color: '#ff0055',
                                 borderRadius: '12px',
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                width: 'auto'
                             }}
                         >
                             End Game
@@ -693,7 +689,7 @@ function GameRoom() {
                                     transition: 'all 0.3s'
                                 }}
                             />
-                            {/* Status Badges */}
+                            {/* Win Streak Badge */}
                             {p.win_streak >= 3 && (
                                 <div style={{ position: 'absolute', top: -15, right: -15, width: 40, height: 40, filter: 'drop-shadow(0 0 5px orange)', zIndex: 10 }}>
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -702,6 +698,7 @@ function GameRoom() {
                                     </svg>
                                 </div>
                             )}
+                            {/* Loss Streak Badge */}
                             {p.loss_streak >= 3 && (
                                 <div style={{ position: 'absolute', top: -15, right: -15, width: 40, height: 40, filter: 'drop-shadow(0 0 5px #00f0ff)', zIndex: 10 }}>
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -754,7 +751,7 @@ function GameRoom() {
                                 value={inputScore}
                                 onChange={(e) => setInputScore(e.target.value)}
                                 placeholder="0"
-                                style={{ fontSize: '4rem', textAlign: 'center', background: 'transparent', border: 'none', borderBottom: '2px solid #333', borderRadius: 0, width: '150px' }}
+                                style={{ fontSize: '4rem', textAlign: 'center', background: 'transparent', border: 'none', borderBottom: '2px solid #333', borderRadius: 0, width: '150px', marginBottom: 0 }}
                                 autoFocus
                             />
                         </div>
