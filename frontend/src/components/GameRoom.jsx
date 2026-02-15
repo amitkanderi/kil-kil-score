@@ -73,40 +73,144 @@ function GameRoom() {
         roundResultRef.current = roundResult;
     }, [roundResult]);
 
-    // Connect to WS
-    useEffect(() => {
-        const socket = new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/${roomCode}/${clientId}`);
+    // Connect to WS with auto-reconnect
+    const wsRef = useRef(null);
+    const reconnectAttempts = useRef(0);
+    const reconnectTimer = useRef(null);
+    const maxReconnectAttempts = 20;
+    const intentionalClose = useRef(false);
 
-        socket.onopen = () => {
-            setIsConnected(true);
-            socket.send(JSON.stringify({ action: "join", name: playerName, avatar: playerAvatar }));
+    useEffect(() => {
+        const connectWs = () => {
+            // Clean up any existing connection
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                return; // Already connected
+            }
+
+            const socket = new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/${roomCode}/${clientId}`);
+
+            socket.onopen = () => {
+                setIsConnected(true);
+                setConnectionError(false);
+                reconnectAttempts.current = 0;
+                socket.send(JSON.stringify({ action: "join", name: playerName, avatar: playerAvatar }));
+            };
+
+            socket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "state_update") {
+                    setGameState(msg.data);
+
+                    // Only reset local state if we are NOT viewing results
+                    if (!roundResultRef.current && msg.data.players[clientId]?.current_round_score === null) {
+                        setMyTurnDone(false);
+                        setEvents([]);
+                        setShowConfetti(false);
+                        setVotedToEnd(false);
+                    }
+                } else if (msg.type === "round_end") {
+                    setRoundResult(msg.data);
+                    roundResultRef.current = msg.data; // Sync ref immediately to prevent race condition with state_update
+                    if (msg.data.events) setEvents(msg.data.events);
+                    const myDetails = msg.data.details.find(d => d.name === playerName);
+                    if (myDetails && myDetails.is_winner) setShowConfetti(true);
+                }
+            };
+
+            socket.onclose = () => {
+                setIsConnected(false);
+                wsRef.current = null;
+
+                // Auto-reconnect unless intentionally closed
+                if (!intentionalClose.current && reconnectAttempts.current < maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+                    reconnectAttempts.current += 1;
+                    reconnectTimer.current = setTimeout(connectWs, delay);
+                }
+            };
+
+            socket.onerror = () => {
+                // onclose will fire after this, which handles reconnection
+            };
+
+            wsRef.current = socket;
+            setWs(socket);
         };
 
-        socket.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "state_update") {
-                setGameState(msg.data);
+        connectWs();
 
-                // Only reset local state if we are NOT viewing results
-                if (!roundResultRef.current && msg.data.players[clientId]?.current_round_score === null) {
-                    setMyTurnDone(false);
-                    setEvents([]);
-                    setShowConfetti(false);
-                    setVotedToEnd(false);
+        return () => {
+            intentionalClose.current = true;
+            clearTimeout(reconnectTimer.current);
+            if (wsRef.current) wsRef.current.close();
+        };
+    }, [roomCode, clientId, playerName, playerAvatar]);
+
+    // Reconnect when tab becomes visible again (e.g. after minimizing browser)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                // If disconnected, reset attempts and try reconnecting
+                if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+                    reconnectAttempts.current = 0;
+                    intentionalClose.current = false;
+                    // Close stale socket if it exists
+                    if (wsRef.current) {
+                        try { wsRef.current.close(); } catch (e) { /* ignore */ }
+                        wsRef.current = null;
+                    }
+                    // Trigger a fresh connection by creating a new socket
+                    const socket = new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/${roomCode}/${clientId}`);
+
+                    socket.onopen = () => {
+                        setIsConnected(true);
+                        setConnectionError(false);
+                        reconnectAttempts.current = 0;
+                        socket.send(JSON.stringify({ action: "join", name: playerName, avatar: playerAvatar }));
+                    };
+
+                    socket.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === "state_update") {
+                            setGameState(msg.data);
+                            if (!roundResultRef.current && msg.data.players[clientId]?.current_round_score === null) {
+                                setMyTurnDone(false);
+                                setEvents([]);
+                                setShowConfetti(false);
+                                setVotedToEnd(false);
+                            }
+                        } else if (msg.type === "round_end") {
+                            setRoundResult(msg.data);
+                            roundResultRef.current = msg.data;
+                            if (msg.data.events) setEvents(msg.data.events);
+                            const myDetails = msg.data.details.find(d => d.name === playerName);
+                            if (myDetails && myDetails.is_winner) setShowConfetti(true);
+                        }
+                    };
+
+                    socket.onclose = () => {
+                        setIsConnected(false);
+                        wsRef.current = null;
+                        if (!intentionalClose.current && reconnectAttempts.current < maxReconnectAttempts) {
+                            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+                            reconnectAttempts.current += 1;
+                            reconnectTimer.current = setTimeout(() => {
+                                // Will be handled by main useEffect if component re-renders
+                            }, delay);
+                        }
+                    };
+
+                    socket.onerror = () => { };
+
+                    wsRef.current = socket;
+                    setWs(socket);
                 }
-            } else if (msg.type === "round_end") {
-                setRoundResult(msg.data);
-                roundResultRef.current = msg.data; // Sync ref immediately to prevent race condition with state_update
-                if (msg.data.events) setEvents(msg.data.events);
-                const myDetails = msg.data.details.find(d => d.name === playerName);
-                if (myDetails && myDetails.is_winner) setShowConfetti(true);
             }
         };
 
-        socket.onclose = () => setIsConnected(false);
-        setWs(socket);
-        return () => socket.close();
-    }, [roomCode, clientId, playerName, playerAvatar]); // Removed roundResult dependency
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [roomCode, clientId, playerName, playerAvatar]);
 
     // Connection Timeout Logic
     useEffect(() => {
@@ -574,7 +678,7 @@ function GameRoom() {
             </div>
 
             {/* Players Scroll (Flexible Middle) */}
-            <div className="player-grid" style={{ flex: 1, alignContent: 'start' }}>
+            <div className="player-grid" style={{ flex: 1, alignContent: 'start', minHeight: 0, overflowY: 'auto' }}>
                 {Object.values(gameState.players).map(p => (
                     <div key={p.name} className={`avatar-option ${p.current_round_score !== null ? 'selected' : ''}`} style={{ width: '100%', height: 'auto', background: 'transparent', boxShadow: 'none', opacity: p.current_round_score !== null ? 0.5 : 1 }}>
                         <div style={{ position: 'relative' }}>

@@ -168,8 +168,8 @@ button:hover {
   gap: 0.8rem;
   padding: 1rem;
   overflow-y: auto;
-  max-height: calc(100vh - 250px);
-  /* Leave space for header and footer */
+  min-height: 0;
+  /* Allow flex shrinking below content size */
 }
 
 @media (min-width: 600px) {
